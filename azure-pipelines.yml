@@ -1,19 +1,101 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
+resources:
+  repositories:
+  # The name used to reference this repository in the checkout step
+  - repository: KangsBashCalcRepo 
+    type: github
+    endpoint: RamspauGitHub
+    name: ramspau/bashCalc
+# The name used to reference this repository in the checkout step
+  - repository: KangsWindowsBatchRepo
+    type: github
+    endpoint: RamspauGitHub
+    name: ramspau/winBatch
 trigger:
 - master
 
 pool:
   vmImage: 'ubuntu-latest'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+stages:
+#First Stage on Ubuntu
+- stage: UbuntuQAEnvCheck
+  jobs:
+  - job: InlineScripts
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+    - checkout: none
+    - script: echo Hello, world!
+      displayName: 'Run a one-line script'
+    - script: |
+        echo Add other tasks to build, test, and deploy your project.
+        echo See https://aka.ms/yaml
+      displayName: 'Run a multi-line script'
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+#Second Stage on Ubuntu Prod
+- stage: UbuntuProdEnvCheck
+  dependsOn: UbuntuQAEnvCheck
+  condition: succeeded()
+  jobs:
+  - job: ExternalScripts
+    pool:
+      vmImage: 'ubuntu-latest'
+     # these variables only available in ExternalScripts job
+    variables:
+      FIRST: 100
+      SECOND: 20
+      OPERATION: 4
+    steps:
+      - checkout: KangsBashCalcRepo
+      - task: Bash@3
+        displayName: 'install bc'
+        inputs:
+          targetType: 'inline'
+          script: |
+            # Write your commands here
+            echo 'installation starts'
+            sudo apt-get install bc
+            echo 'installation ends'
+      - task: Bash@3
+        displayName: 'run calc'
+        inputs:
+          filePath: 'calc.sh'
+
+#Third Stage on Windows QA
+- stage: WindowsQAEnvCheck
+  dependsOn: UbuntuQAEnvCheck
+  condition: succeeded()
+  jobs:
+  - job: InternalScripts
+  #Windows Microsoft hosted image
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: none
+    - script: echo Hello, world!
+      displayName: 'Run a one-line script'
+    - script: |
+        echo Learning is fun, enquire below.
+        echo See https://www.kavinschool.com/content/
+      displayName: 'Run a multi-line script'
+
+#Fourth Stage on Windows Prod
+- stage: WindowsProdEnvCheck
+  dependsOn: 
+  - UbuntuProdEnvCheck
+  - WindowsQAEnvCheck
+  condition: succeeded()
+  jobs:
+  - job: ExternalScripts
+    pool:
+      vmImage: 'windows-latest'
+    steps:
+    - checkout: KangsWindowsBatchRepo
+    - task: BatchScript@1
+      inputs:
+        filename: 'power.bat'
+        arguments: '3 4'
+    - task: BatchScript@1
+      inputs:
+        filename: 'calc.bat'
+        arguments: '300 100'
